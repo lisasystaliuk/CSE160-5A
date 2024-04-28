@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Three.js - Combined Example</title>
+    <style>
+    html, body {
+        height: 100%;
+        margin: 0;
+    }
+    canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+</body>
+
+<script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://threejs.org/build/three.module.js",
+    "three/addons/": "https://threejs.org/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+
+import * as THREE from 'https://threejs.org/build/three.module.js';
+import { OrbitControls } from 'https://threejs.org/examples/jsm/controls/OrbitControls.js';
+import { OBJLoader } from 'https://threejs.org/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'https://threejs.org/examples/jsm/loaders/MTLLoader.js';
+
+const clock = new THREE.Clock();
+const spheres = [];
+const cylinders = [];
+const cubes = [];
+function main() {
+    const canvas = document.querySelector('#c');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
+
+    const fov = 60;
+    const aspect = 2;  // the canvas default
+    const near = 0.1;
+    const far = 500;
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(0, 10, 30);
+
+    const controls = new OrbitControls(camera, canvas);
+    // Set up some reasonable defaults
+    controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+    controls.dampingFactor = 0.25;
+    controls.screenSpacePanning = false;
+    controls.minDistance = 10;
+    controls.maxDistance = 500;
+    controls.maxPolarAngle = Math.PI / 2;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('skyblue');
+    const gui = new dat.GUI();
+
+    // // Example object that will hold variables to control
+    // const controlVars = {
+    // skyColor: "#b1e1ff", // default sky color
+    // groundColor: "#b97a20", // default ground color
+    // intensity: 1 // default intensity
+    // };
+
+    // // Adding GUI controls
+    // gui.addColor(controlVars, 'skyColor').onChange(value => {
+    // // Update the skyColor of the hemisphere light
+    // hemisphereLight.skyColor = new THREE.Color(value);
+    // });
+
+    // gui.addColor(controlVars, 'groundColor').onChange(value => {
+    // // Update the groundColor of the hemisphere light
+    // hemisphereLight.groundColor = new THREE.Color(value);
+    // });
+
+    // gui.add(controlVars, 'intensity', 0, 3).onChange(value => {
+    // // Update the intensity of the light
+    // hemisphereLight.intensity = value;
+    // });
+    // Ground Plane
+    {
+        const planeSize = 40;
+        const loader = new THREE.TextureLoader();
+        const texture = loader.load('https://threejs.org/manual/examples/resources/images/checker.png');
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.magFilter = THREE.NearestFilter;
+        const repeats = planeSize / 2;
+        texture.repeat.set(repeats, repeats);
+
+        const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeMat = new THREE.MeshPhongMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+        });
+        const mesh = new THREE.Mesh(planeGeo, planeMat);
+        mesh.rotation.x = Math.PI * -0.5;
+        scene.add(mesh);
+    }
+
+    // Lighting
+    {
+        const skyColor = 0xB1E1FF;  // light blue
+        const groundColor = 0xB97A20;  // brownish orange
+        const intensity = 1;
+        const light = new THREE.HemisphereLight(skyColor, groundColor, intensity);
+        scene.add(light);
+
+        const color = 0xFFFFFF;
+        const intensity2 = 1;
+        const light2 = new THREE.DirectionalLight(color, intensity2);
+        light2.position.set(5, 10, 2);
+        scene.add(light2);
+        
+    }
+
+    // Load Windmill Model
+    {
+        const mtlLoader = new MTLLoader();
+        mtlLoader.load('https://threejs.org/manual/examples/resources/models/windmill_2/windmill-fixed.mtl', (mtl) => {
+            mtl.preload();
+            const objLoader = new OBJLoader();
+            objLoader.setMaterials(mtl);
+            objLoader.load('https://threejs.org/manual/examples/resources/models/windmill_2/windmill.obj', (root) => {
+                scene.add(root);
+                root.position.set(0, 0, 0);
+                root.scale.set(0.005, 0.005, 0.005);
+            });
+        });
+    }
+
+    // Geometry Definitions
+    const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const sphereGeometry = new THREE.SphereGeometry(1, 50, 50);
+    const cylinderGeometry = new THREE.CylinderGeometry(3, 2, 10, 32);
+
+    // Materials
+    const textureLoader = new THREE.TextureLoader();
+    const cubeTexture = textureLoader.load('https://raw.githubusercontent.com/GhostCatcg/3d-earth/main/static/images/earth/earth.jpg', updateTexture);
+    const sphereTexture = textureLoader.load('https://raw.githubusercontent.com/franky-adl/threejs-earth/main/src/assets/Albedo.jpg', updateTexture);
+    const cubeMaterial = new THREE.MeshPhongMaterial({map: cubeTexture});
+    const sphereMaterial = new THREE.MeshPhongMaterial({map: sphereTexture});
+
+    // Meshes
+    for (let j = 0; j < 20; j++) {
+        // Create and position a cube
+        var i = j/10;
+        var k = j+10
+        if(j%2 == 0){
+            k*=-1;
+        }
+        const cubeMesh = new THREE.Mesh(boxGeometry, cubeMaterial);
+        var x = (i - 0.5)* k- 5;
+        var y = i +10;
+        var z = i*j;
+        cubeMesh.position.set(x, y, z);
+        scene.add(cubeMesh);
+        cubes.push(cubeMesh);
+
+        // Create and position a sphere
+        const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        sphereMesh.position.set((i - 0.5)+k, i * 5, (i- 0.5));
+        scene.add(sphereMesh);
+        spheres.push(sphereMesh);
+
+        // Create and position a cylinder
+        var cylinderMesh = new THREE.Mesh(cylinderGeometry, cubeMaterial);
+        x = (i - 0.5) * 50+ 10;
+        y = i* k+ 10;
+        z = (i - 0.5)*j;
+        cylinderMesh.position.set(x, y, z);
+        x*=-1;
+        scene.add(cylinderMesh);
+        cylinders.push(cylinderMesh);
+        cylinderMesh = new THREE.Mesh(cylinderGeometry, cubeMaterial);
+        cylinderMesh.position.set(x,y,z);
+        scene.add(cylinderMesh);
+        cylinders.push(cylinderMesh);
+        }
+    
+    // scene.add(new THREE.Mesh(sphereGeometry, cubeMaterial).mesh.position.set(0, 3, 0));
+    // scene.add(new THREE.Mesh(cylinderGeometry, cubeMaterial).mesh.position.set(2, 0, 0));
+
+    function updateTexture() {
+        cubeTexture.needsUpdate = true;
+    }
+
+    function resizeRendererToDisplaySize(renderer) {
+        const canvas = renderer.domElement;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const needResize = renderer.getSize(new THREE.Vector2()).width !== width || renderer.getSize(new THREE.Vector2()).height !== height;
+        if (needResize) {
+            renderer.setSize(width, height, false);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+        return needResize;
+    }
+
+    function render() {
+        const time = clock.getElapsedTime();
+
+        // Animate spheres
+        spheres.forEach((sphere, index) => {
+            // Simple up and down animation
+            sphere.position.z = Math.sin(time + index) * 50;
+            // Add rotation for visual effect
+            sphere.rotation.y = time + 50;
+            sphere.rotation.z = time * 0.5;
+        });
+        //Animate cubes
+        cubes.forEach((cube, index) => {
+            cube.position.x = Math.sin(time + index) * 50;
+            cube.position.x = Math.sin(time + index) * 50;
+            cube.rotation.x = time * 0.5 + 50;
+            cube.rotation.z = time * 0.5;
+        });
+
+        // Animate cylinders
+        cylinders.forEach((cylinder, index) => {
+        cylinder.position.y = Math.sin(time + index) * 50;
+        cylinder.rotation.y = time + 50;
+        cylinder.rotation.z = time * 0.5;
+    });
+    controls.update();
+
+        if (resizeRendererToDisplaySize(renderer)) {
+            camera.updateProjectionMatrix();
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+    }
+
+main();
+
+
+ </script>
+</html>
